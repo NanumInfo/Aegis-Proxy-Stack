@@ -1,0 +1,5 @@
+-- [Phase 1] NGINX Proxy Manager Init
+CREATE DATABASE IF NOT EXISTS `npm`;
+CREATE USER IF NOT EXISTS 'npm'@'%' IDENTIFIED BY 'npm_password';
+GRANT ALL PRIVILEGES ON `npm`.* TO 'npm'@'%';
+FLUSH PRIVILEGES;

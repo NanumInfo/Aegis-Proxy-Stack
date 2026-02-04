@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# 쉘 스크립트는 윈도우에서 체크아웃하더라도 항상 LF(리눅스 줄바꿈)를 유지하도록 강제
+*.sh text eol=lf

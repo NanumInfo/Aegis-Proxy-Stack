@@ -1,0 +1,142 @@
+# [Project Identity]
+name: aegis-proxy-stack
+
+# [Network Isolation]
+networks:
+  aegis-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+    driver_opts:
+      com.docker.network.bridge.name: br-aegis
+
+services:
+  # [Core 1] NGINX Proxy Manager with WAF Attachment
+  npm:
+    image: 'ghcr.io/openappsec/nginx-proxy-manager-attachment:latest'
+    container_name: aegis-npm
+    restart: unless-stopped
+    ports:
+      - '0.0.0.0:80:80'
+      - '0.0.0.0:443:443'
+      - '0.0.0.0:81:81'
+    environment:
+      DB_MYSQL_HOST: "db"
+      DB_MYSQL_PORT: 3306
+      DB_MYSQL_USER: "npm"
+      # [변수 적용]
+      DB_MYSQL_PASSWORD: "${NPM_DB_PASSWORD}"
+      DB_MYSQL_NAME: "npm"
+      DISABLE_IPV6: 'true' 
+    volumes:
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
+      - ./waf-policies:/ext/appsec
+      - ./waf-logs:/ext/appsec-logs
+      - ./data/logs:/data/logs
+    ipc: host
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=1
+      - net.ipv6.conf.default.disable_ipv6=1
+      - net.ipv6.conf.lo.disable_ipv6=1
+    networks:
+      - aegis-network
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:81/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      db:
+        condition: service_healthy
+      agent:
+        condition: service_started
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # [Core 2] WAF Agent
+  agent:
+    image: 'ghcr.io/openappsec/agent:latest'
+    container_name: aegis-agent
+    restart: unless-stopped
+    environment:
+      # [변수 적용]
+      - agent_token=${AGENT_TOKEN}
+      - auto_policy_load=true
+    volumes:
+      - ./waf-config:/etc/cp/conf
+      - ./waf-data:/etc/cp/data
+      - ./waf-logs:/var/log/nano_agent
+      - ./waf-policies:/ext/appsec
+    command: /cp-nano-agent --standalone
+    ipc: host
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=1
+      - net.ipv6.conf.default.disable_ipv6=1
+    networks:
+      - aegis-network
+    healthcheck:
+      test: ["CMD-SHELL", "pidof cp-nano-agent || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # [Utility] Log Rotator Sidecar
+  log-rotator:
+    image: alpine:3.19
+    container_name: aegis-log-rotator
+    restart: unless-stopped
+    command: >
+      /bin/sh -c "apk add --no-cache logrotate && 
+      echo '0 0 * * * /usr/sbin/logrotate -v /etc/logrotate.conf' >> /etc/crontabs/root && 
+      crond -f -l 8"
+    volumes:
+      - ./logrotate/aegis-rotate.conf:/etc/logrotate.conf
+      - ./data/logs:/var/log/target/npm
+      - ./waf-logs:/var/log/target/waf
+    networks:
+      - aegis-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "1"
+
+  # [Support] Database Service
+  db:
+    image: 'jc21/mariadb-aria:latest'
+    container_name: aegis-db
+    restart: unless-stopped
+    environment:
+      # [변수 적용]
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+      MYSQL_DATABASE: 'npm'
+      MYSQL_USER: 'npm'
+      MYSQL_PASSWORD: "${NPM_DB_PASSWORD}"
+    volumes:
+      - ./db:/var/lib/mysql
+      - ./db-init:/docker-entrypoint-initdb.d
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=1
+      - net.ipv6.conf.default.disable_ipv6=1
+    networks:
+      - aegis-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_ROOT_PASSWORD}"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
