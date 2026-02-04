@@ -32,8 +32,8 @@ services:
       - ./data:/data
       - ./data/logs:/data/logs
       - ./letsencrypt:/etc/letsencrypt
+      - ./waf-config:/ext/appsec
       - ./waf-logs:/ext/appsec-logs
-      - ./waf-share:/ext/appsec
     ipc: host
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=1
@@ -69,9 +69,8 @@ services:
     volumes:
       - ./waf-config:/etc/cp/conf
       - ./waf-data:/etc/cp/data
-      - ./waf-logs:/var/log/nano_agent
       - ./waf-share:/ext/appsec
-
+      - ./waf-logs:/var/log/nano_agent
     command: /cp-nano-agent --standalone
     ipc: host
     sysctls:

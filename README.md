@@ -13,15 +13,17 @@ NGINX Proxy Manager(NPM)의 사용 및 관리 편의성에 더하여 엔터프�
 * **Advanced Machine Learning Model:** [고급 머신러닝 모델](https://docs.openappsec.io/getting-started/using-the-advanced-machine-learning-model)을 적용한 방어체계 구축 **(Phase 2 Scheduled)**
 * **Crowd-Sourced IPS:** [CrowdSec](https://www.crowdsec.net) 통합으로 전 세계 위협 IP 데이터 실시간 공유 및 차단 **(Phase 3 Scheduled)**
 * **Real-time Visualization:** [GoAccess](https://goaccess.io)와 [GeoIP2](https://www.maxmind.com) 연동으로 트래픽 및 공격지점 지도 기반 시각화 **(Phase 4 Scheduled)**
-* **Aegis 통합 관리 UI:** 상기 보안 솔루션을 통합하여 관리하기 위한 웹 기반 관리 솔루션 개발 **(Phase 5 Scheduled)**
+* **Aegis Integrated Management UI:** 상기 보안 솔루션 통합 관리를 위한 웹 기반 관리 솔루션 개발 **(Phase 5 Scheduled)**
 
 ## 📜 Architecture (Roadmap)
 
-1.  **Phase 1:** NGINX Proxy Manager + open-appsec ML-Based WAF Integration (✅ Current)
-2.  **Phase 2:** Using the Advanced Machine Learning Model
-3.  **Phase 3:** CrowdSec IPS Integration
-4.  **Phase 4:** GoAccess + GeoIP Visualization Setup
-5.  **Phase 5:** Aegis 통합 관리 UI
+* **Phase 1:** NGINX Proxy Manager + open-appsec ML-Based WAF Integration (✅ Current)
+* **Phase 2:** Using the Advanced Machine Learning Model
+* **Phase 3:** CrowdSec IPS Integration
+* **Phase 4:** GoAccess + GeoIP Visualization Setup
+* **Phase 5:** Aegis Integrated Management UI
+* **Phase 6:** Integration with other Security Solutions
+* **Phase 7:** Enhanced Performance and Functionality
 
 ---
 
@@ -49,6 +51,7 @@ Aegis-Proxy-Stack은 단순한 통합을 넘어, 운영 안정성과 보안 규�
 ### 📋 Prerequisites (사전 요구 사항 및 환경 점검)
 
 설치를 진행하기 전에 반드시 아래 사항들을 확인해주세요.
+
 **본 프로젝트는 보안상의 이유로 `root` 계정이 아닌 `일반 사용자` 계정으로 설치 및 실행하는 것을 권장합니다.**
 
 #### 1. Docker 설치 및 버전 확인 (필수)
@@ -146,10 +149,12 @@ WAF 엔진을 활성화하기 위해 관리 포털에서 에이전트 토큰을 
 > ```
 
 **정상 결과 예시:**
-> * `aegis-agent`: **(healthy)**
-> * `aegis-db`: **(healthy)**
-> * `aegis-log-rotator`: **(Up)**
-> * `aegis-npm`: **(healthy)**
+> ```
+> aegis-agent           ......     Up 1 minutes (healthy)
+> aegis-db              ......     Up 1 minutes (healthy)
+> aegis-log-rotator     ......     Up 1 minutes
+> aegis-npm             ......     Up 1 minutes (healthy)
+> ```
 
 **Note:** 초기 실행 시 데이터베이스 및 WAF 엔진 초기화로 인해 `aegis-npm` 컨테이너가 시작되기까지 약 1~2분이 소요될 수 있습니다.
 
