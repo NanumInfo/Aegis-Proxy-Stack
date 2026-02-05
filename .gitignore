@@ -1,28 +1,13 @@
 # Aegis-Proxy-Stack .gitignore
 
-# ----------------------------------------
-# 1. Secrets (보안상 절대 커밋 금지)
-# ----------------------------------------
-.env                # [중요] 토큰과 비밀번호가 저장된 파일
+# 1. Runtime Data & Logs (데이터 및 로그 절대 금지)
+aegis-data/
+aegis-logs/
 
-# ----------------------------------------
-# 2. Runtime Data (운영 중 생성되는 데이터)
-# ----------------------------------------
-data/               # NPM 설정 및 로그
-db/                 # MariaDB 데이터 파일
-db-init/            # (주의) init.sql은 배포해야 하므로 여기 넣으면 안 됨! (제외함)
-letsencrypt/        # SSL 인증서
+# 2. Runtime Config (에이전트가 자동 생성하는 설정)
+aegis-config/agent/
 
-# ----------------------------------------
-# 3. WAF Engine Data (보안 엔진 데이터)
-# ----------------------------------------
-waf-config/
-waf-data/
-waf-logs/
-waf-policies/
-
-# ----------------------------------------
-# 4. System Files (OS 임시 파일)
-# ----------------------------------------
+# 3. System Files
 .DS_Store
 Thumbs.db
+.env

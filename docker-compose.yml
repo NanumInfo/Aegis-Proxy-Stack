@@ -29,11 +29,11 @@ services:
       DB_MYSQL_NAME: "npm"
       DISABLE_IPV6: 'true' 
     volumes:
-      - ./aegis-logs:/ext/appsec-logs
-      - ./aegis-policy/:/ext/appsec
-      - ./certificate:/etc/letsencrypt
-      - ./data:/data
-      - ./data/logs:/data/logs
+      - ./aegis-config/policy:/ext/appsec
+      - ./aegis-data/certs:/etc/letsencrypt
+      - ./aegis-data/npm:/data
+      - ./aegis-logs/npm:/data/logs
+      - ./aegis-logs/waf:/ext/appsec-logs
     ipc: host
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=1
@@ -67,10 +67,10 @@ services:
       - nginxproxymanager=true
       - user_email=${AGENT_EMAIL}
     volumes:
-      - ./aegis-config:/etc/cp/conf
-      - ./aegis-data:/etc/cp/data
-      - ./aegis-logs:/var/log/nano_agent
-      - ./aegis-policy:/ext/appsec
+      - ./aegis-config/agent:/etc/cp/conf
+      - ./aegis-config/policy:/ext/appsec
+      - ./aegis-data/learning:/etc/cp/data
+      - ./aegis-logs/waf:/var/log/nano_agent
     command: /cp-nano-agent --standalone
     ipc: host
     sysctls:
@@ -99,9 +99,9 @@ services:
       echo '0 0 * * * /usr/sbin/logrotate -v /etc/logrotate.conf' >> /etc/crontabs/root && 
       crond -f -l 8"
     volumes:
-      - ./aegis-config/aegis-rotate.conf:/etc/logrotate.conf
-      - ./aegis-logs:/var/log/target/waf
-      - ./data/logs:/var/log/target/npm
+      - ./aegis-config/logrotate/aegis-rotate.conf:/etc/logrotate.conf
+      - ./aegis-logs/npm:/var/log/target/npm
+      - ./aegis-logs/waf:/var/log/target/waf
     networks:
       - aegis-network
     logging:
@@ -121,8 +121,8 @@ services:
       MYSQL_USER: 'npm'
       MYSQL_PASSWORD: "${NPM_DB_PASSWORD}"
     volumes:
-      - ./db:/var/lib/mysql
-      - ./db-init:/docker-entrypoint-initdb.d
+      - ./aegis-data/db:/var/lib/mysql
+      - ./aegis-config/db-init:/docker-entrypoint-initdb.d
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=1
       - net.ipv6.conf.default.disable_ipv6=1
@@ -138,4 +138,3 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
