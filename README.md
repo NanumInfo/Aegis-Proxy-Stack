@@ -160,6 +160,19 @@ WAF 엔진을 활성화하기 위해 관리 포털에서 에이전트 토큰을 
 
 ---
 
+## ⚠️ Known Issues & Workarounds (알려진 이슈 및 해결 방법)
+
+### 1. SSL 인증서 발급 시 "Test Reachability" 실패 현상
+NPM UI에서 SSL 인증서 발급 시 `JSONObject["responsetime"] not found` 또는 `Unexpected status code` 오류와 함께 도메인 연결 테스트가 실패하는 경우가 있습니다.
+
+> * **원인:** 이는 Aegis-Proxy-Stack의 결함이 아닌, **Nginx Proxy Manager(NPM) 자체의 고질적인 사전 점검 로직 이슈**입니다. NPM 백엔드가 자기 자신의 공인 IP로 접속하여 응답을 확인하는 과정에서 루프백(Loopback) 경로 문제나 보안 모듈의 응답 헤더 간섭으로 인해 발생합니다.
+> * **증상:** "Test Reachability" 버튼 클릭 시 에러가 발생하거나, 인증서 발급 창에서 저장 시 경고 팝업이 뜸.
+> * **해결 방법 (Workaround):**
+>     1. **무시하고 진행:** 사전 테스트 결과와 상관없이 실제 `Certbot`을 통한 인증서 발급은 정상적으로 수행됩니다. 에러 팝업이 뜨더라도 다시 한번 **Save**를 누르면 발급이 완료됩니다.
+>     2. **Temporary Disable:** 만약 지속적으로 실패한다면, 해당 Proxy Host를 잠시 **'Disabled'** 상태로 변경한 뒤 인증서를 발급받으세요. 발급 성공 후 다시 'Enabled' 및 'open-appsec ON'으로 설정하면 모든 기능이 정상 작동합니다.
+
+---
+
 ## ⚙️ Configuration & Usage
 
 ### 1. 관리자 페이지 접속
@@ -178,9 +191,15 @@ WAF 엔진을 활성화하기 위해 관리 포털에서 에이전트 토큰을 
 
 ### 3. 주요 디렉토리 구조
 설치 후 생성되는 주요 데이터 폴더는 다음과 같습니다.
-> * `data/`: NPM 설정 및 로그
-> * `waf-logs/`: WAF 보안 로그 (open-appsec)
-> * `logrotate/`: 로그 자동 순환 설정 파일
+> * `data/`: NPM 설정 및 웹 서버 데이터 (Proxy Host 설정, 사용자 계정 정보 등)
+> * `db/`: MariaDB 데이터베이스 엔진 (NPM의 모든 메타데이터가 저장되는 실제 DB 파일)
+> * `db-init/`: DB 초기화 스크립트 (컨테이너 최초 생성 시 테이블 스키마를 생성하는 SQL 파일)
+> * `letsencrypt/`: TLS 인증서 저장소 (Let's Encrypt에서 발급받은 실제 인증서 및 키 파일)
+> * `logrotate/`: 로그 순환 설정 (보안 규제 준수를 위한 로그 보관 주기 및 압축 설정 파일)
+> * `waf-config/`: WAF 에이전트 설정 (클라우드 동기화 정보 및 에이전트 고유 설정 파일 저장)
+> * `waf-data/`: WAF 학습 데이터 (기계 학습 모델의 탐지 정확도 향상을 위한 영속성 데이터 저장)
+> * `waf-logs/`: 보안 차단 상세 로그 (WAF에 의해 차단된 공격 이벤트 로그 - waf_security_log.log)
+> * `waf-share/`: 정책 공유 디렉토리 (NPM UI에서 설정한 정책을 WAF 엔진이 읽어가는 교환 구역)
 
 ---
 
