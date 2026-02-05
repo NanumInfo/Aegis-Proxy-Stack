@@ -29,11 +29,11 @@ services:
       DB_MYSQL_NAME: "npm"
       DISABLE_IPV6: 'true' 
     volumes:
+      - ./aegis-logs:/ext/appsec-logs
+      - ./aegis-policy/:/ext/appsec
+      - ./certificate:/etc/letsencrypt
       - ./data:/data
       - ./data/logs:/data/logs
-      - ./letsencrypt:/etc/letsencrypt
-      - ./waf-config:/ext/appsec
-      - ./waf-logs:/ext/appsec-logs
     ipc: host
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=1
@@ -63,14 +63,14 @@ services:
     container_name: aegis-agent
     restart: unless-stopped
     environment:
-      - agent_token=${AGENT_TOKEN}
-      - auto_policy_load=true
+      - autoPolicyLoad=true
       - nginxproxymanager=true
+      - user_email=${AGENT_EMAIL}
     volumes:
-      - ./waf-config:/etc/cp/conf
-      - ./waf-data:/etc/cp/data
-      - ./waf-share:/ext/appsec
-      - ./waf-logs:/var/log/nano_agent
+      - ./aegis-config:/etc/cp/conf
+      - ./aegis-data:/etc/cp/data
+      - ./aegis-logs:/var/log/nano_agent
+      - ./aegis-policy:/ext/appsec
     command: /cp-nano-agent --standalone
     ipc: host
     sysctls:
@@ -99,9 +99,9 @@ services:
       echo '0 0 * * * /usr/sbin/logrotate -v /etc/logrotate.conf' >> /etc/crontabs/root && 
       crond -f -l 8"
     volumes:
-      - ./logrotate/aegis-rotate.conf:/etc/logrotate.conf
+      - ./aegis-config/aegis-rotate.conf:/etc/logrotate.conf
+      - ./aegis-logs:/var/log/target/waf
       - ./data/logs:/var/log/target/npm
-      - ./waf-logs:/var/log/target/waf
     networks:
       - aegis-network
     logging:
@@ -138,3 +138,4 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+

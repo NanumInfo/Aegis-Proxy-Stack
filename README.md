@@ -217,7 +217,7 @@ NPM UI에서 SSL 인증서 발급 시 `JSONObject["responsetime"] not found` 또
 > 3. **Details** 탭:
 >     * Domain Names: `test.aegis.local` (또는 보유한 실제 도메인)
 >     * Forward Hostname / IP: `127.0.0.1` (또는 아무 웹서버 IP)
->     * Forward Port: `80`
+>     * Forward Port: `81` (또는 실제 서비스 Port)
 > 4. **open-appsec** (중요):
 >     * **토글 스위치 On** 체크 ✅
 > 5. 저장합니다.
@@ -234,7 +234,7 @@ NPM UI에서 SSL 인증서 발급 시 `JSONObject["responsetime"] not found` 또
 > 2. SQL Injection 공격 시도 (차단되어야 함)
 > 결과: HTTP/1.1 403 Forbidden
 > ```bash
-> curl -I -H "Host: test.aegis.local" "http://127.0.0.1/?id=1' OR '1'='1"
+> curl -I -H "Host: test.aegis.local" "http://127.0.0.1/?id=1%27%20OR%20%271%27=%271"
 > ```
 > 
 > 3. XSS 공격 시도 (차단되어야 함)
