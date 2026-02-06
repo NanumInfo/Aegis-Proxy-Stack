@@ -27,13 +27,15 @@ services:
       DB_MYSQL_USER: "npm"
       DB_MYSQL_PASSWORD: "${NPM_DB_PASSWORD}"
       DB_MYSQL_NAME: "npm"
-      DISABLE_IPV6: 'true' 
+      DISABLE_IPV6: "true"
     volumes:
       - ./aegis-config/policy:/ext/appsec
       - ./aegis-data/certs:/etc/letsencrypt
       - ./aegis-data/npm:/data
       - ./aegis-logs/npm:/data/logs
       - ./aegis-logs/waf:/ext/appsec-logs
+      # 👇 [Timezone Fix] 호스트의 시간 설정을 그대로 따름
+      - /etc/localtime:/etc/localtime:ro
     ipc: host
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=1
@@ -71,6 +73,8 @@ services:
       - ./aegis-config/policy:/ext/appsec
       - ./aegis-data/learning:/etc/cp/data
       - ./aegis-logs/waf:/var/log/nano_agent
+      # 👇 [Timezone Fix] 호스트의 시간 설정을 그대로 따름
+      - /etc/localtime:/etc/localtime:ro
     command: /cp-nano-agent --standalone
     ipc: host
     sysctls:
@@ -95,13 +99,15 @@ services:
     container_name: aegis-log-rotator
     restart: unless-stopped
     command: >
-      /bin/sh -c "apk add --no-cache logrotate && 
+      /bin/sh -c "apk add --no-cache logrotate docker-cli tzdata && 
       echo '0 0 * * * /usr/sbin/logrotate -v /etc/logrotate.conf' >> /etc/crontabs/root && 
       crond -f -l 8"
     volumes:
       - ./aegis-config/logrotate/aegis-rotate.conf:/etc/logrotate.conf
       - ./aegis-logs/npm:/var/log/target/npm
       - ./aegis-logs/waf:/var/log/target/waf
+      # 👇 [Timezone Fix] 호스트의 시간 설정을 그대로 따름
+      - /etc/localtime:/etc/localtime:ro
     networks:
       - aegis-network
     logging:
@@ -123,6 +129,8 @@ services:
     volumes:
       - ./aegis-data/db:/var/lib/mysql
       - ./aegis-config/db-init:/docker-entrypoint-initdb.d
+      # 👇 [Timezone Fix] 호스트의 시간 설정을 그대로 따름
+      - /etc/localtime:/etc/localtime:ro
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=1
       - net.ipv6.conf.default.disable_ipv6=1

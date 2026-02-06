@@ -66,13 +66,14 @@ docker compose version
 **🚨 Docker가 없거나 버전이 낮은 경우 (해결 방법)**
 아래와 같은 공식 설치 스크립트를 사용하면 최신 버전의 Docker와 Compose가 자동으로 설치(또는 업데이트)됩니다.
 ```bash
-curl -fsSL [https://get.docker.com](https://get.docker.com) | sudo sh
+curl -fsSL https://get.docker.com | sudo sh
 ```
 
 #### 2. 사용자 권한 확인 (Docker 그룹 설정)
 일반 계정에서 `sudo` 없이 Docker 명령어를 실행하려면, 해당 계정이 `docker` 그룹에 포함되어 있어야 합니다.
 
 **Step 1. 현재 권한 확인**
+
 터미널에서 아래 명령어를 입력했을 때, 에러 없이 컨테이너 목록(또는 빈 목록)이 나와야 합니다.
 ```bash
 docker ps
@@ -80,6 +81,7 @@ docker ps
 **🚨 `permission denied` 에러가 발생한다면 아래 Step 2를 진행하세요.**
 
 **Step 2. Docker 그룹에 사용자 추가 (필요시)**
+
 현재 사용자를 docker 그룹에 추가 및 그룹 변경 사항 적용을 위해 아래 명령어 실행
 ```bash
 sudo usermod -aG docker $USER 
@@ -97,6 +99,7 @@ Aegis-Proxy-Stack은 다음 포트를 사용합니다. 해당 포트가 이미 �
 ### 🛠️ Step-by-Step Install Guide
 
 **1. 작업 환경 구성 (Prepare)**
+
 프로젝트의 체계적인 관리와 향후 확장성을 위해 `aegis` 전용 디렉토리를 생성하여 설치하는 것을 권장합니다. 아래 모든 과정은 반드시 `root`가 아닌 일반 사용자 계정으로 진행해 주세요.
 
 사용자 홈디렉토리에 'aegis' 프로젝트 최상위 폴더 생성 후 해당 폴더로 이동합니다. **(옵션 사항)**
@@ -106,14 +109,15 @@ cd ~/aegis
 ```
 
 **2. 저장소 복제 (Clone Repository)**
+
 ```bash
-git clone [https://github.com/NanumInfo/aegis-proxy-stack.git](https://github.com/NanumInfo/aegis-proxy-stack.git)
+git clone https://github.com/NanumInfo/aegis-proxy-stack.git
 cd aegis-proxy-stack
 ```
 
 **3. 설치 스크립트 실행 (Run Interactive Installer)**
-포함된 `install.sh` 스크립트를 실행하면 통합 디렉토리 구조를 생성하고 보안 설정을 완료한 뒤, **서비스 자동 실행 여부**를 묻습니다.
 
+포함된 `install.sh` 스크립트를 실행하면 통합 디렉토리 구조를 생성하고 보안 설정을 완료한 뒤, **서비스 자동 실행 여부**를 묻습니다.
 ```bash
 chmod +x install.sh
 ./install.sh
@@ -121,12 +125,14 @@ chmod +x install.sh
 > **Info:** 이 스크립트는 `aegis-config`, `aegis-data`, `aegis-logs` 통합 디렉토리 구조를 자동으로 생성하고, 보안 권한(Permission)을 750/600으로 강화합니다.
 
 **4. 서비스 실행 (Start Services)**
+
 설치 스크립트에서 자동 실행을 하지 않았다면 아래 명령어로 실행합니다.
 ```bash
 docker compose up -d
 ```
 
 **5. 실행 상태 확인 (Verify)**
+
 모든 컨테이너가 `healthy` 또는 `Up` 상태인지 확인합니다.
 ```bash
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
@@ -145,6 +151,7 @@ aegis-log-rotator   Up 1 minutes
 > **Note:** 초기 실행 시 데이터베이스 및 WAF 엔진 초기화로 인해 `aegis-npm` 컨테이너가 시작되기까지 약 1~2분이 소요될 수 있습니다.
 
 **6. 주요 디렉토리 구조 (Centralized Structure)**
+
 Aegis-Proxy-Stack v0.1.5부터는 관리 효율성을 위해 모든 디렉토리를 **성격(Config, Data, Logs)에 따라 3개의 대분류로 통합**하였습니다.
 
 | 대분류 | 하위 경로 (Sub-path) | 성격 (Role) | 설명 및 주요 내용 |
@@ -183,6 +190,8 @@ NPM UI에서 SSL 인증서 발급 시 `JSONObject["responsetime"] not found` 또
 
 ![NPM Add Proxy Host](images/npm_add_proxy_host.png)
 > 1. NGINX Proxy Manager 관리자 페이지(`http://서버IP:81`)에 로그인합니다.
+>     * Default Email: **`admin@example.com`**
+>     * Default Password: **`changeme`**
 > 2. **Hosts** > **Proxy Hosts** > **Add Proxy Host** 메뉴를 클릭합니다.
 > 3. **Details** 탭:
 >     * Domain Names: `test.aegis.local`
@@ -194,24 +203,25 @@ NPM UI에서 SSL 인증서 발급 시 `JSONObject["responsetime"] not found` 또
 > 5. **Save** 버튼 클릭
 
 **Step 2. 공격 시뮬레이션 (SQL Injection / XSS)**
+
 터미널에서 `curl` 명령어를 사용하여 공격 패턴이 포함된 요청을 보냅니다.
 *(도메인을 실제 등록하지 않았다면 `-H "Host: ..."` 옵션을 사용합니다)*
 
 * **정상 요청 (통과되어야 함)**
 ```bash
-curl -I -H "Host: test.aegis.local" "[http://127.0.0.1/](http://127.0.0.1/)"
+curl -I -H "Host: test.aegis.local" "http://서버IP/"
 # 예상결과: HTTP/1.1 200 OK (또는 302/404 등 웹서버 응답)
 ```
 
 * **SQL Injection 공격 시도 (차단되어야 함)**
 ```bash
-curl -I -H "Host: test.aegis.local" "[http://127.0.0.1/?id=1%27%20OR%20%271%27=%271](http://127.0.0.1/?id=1%27%20OR%20%271%27=%271)"
+curl -I -H "Host: test.aegis.local" "http://서버IP/?id=1%27%20OR%20%271%27=%271"
 # 예상결과: HTTP/1.1 403 Forbidden
 ```
 
 * **XSS 공격 시도 (차단되어야 함)**
 ```bash
-curl -I -H "Host: test.aegis.local" "[http://127.0.0.1/?search=](http://127.0.0.1/?search=)<script>alert(1)</script>"
+curl -I -H "Host: test.aegis.local" "http://서버IP/?search=<script>alert(1)</script>"
 # 예상결과: HTTP/1.1 403 Forbidden
 ```
 
@@ -228,6 +238,34 @@ sudo tail -f aegis-logs/waf/cp-nano-http-transaction-handler.log* | grep -E "Pre
 
 로그 파일에 방금 실행한 `curl` 명령의 차단 내역(SQL Injection, XSS)이 JSON 형태로 기록되어 있어야 합니다.
 
+---
+
+## 🔄 Update Guide (v0.2.0 → v0.2.1)
+
+**v0.2.1** 패치는 컨테이너가 호스트 서버의 시간대(Timezone)를 자동으로 상속받도록 개선되었습니다.
+
+**업데이트 적용 방법:**
+
+1. **최신 코드 적용:**
+
+```bash
+git pull origin main
+```
+
+2. **컨테이너 재생성 (필수):**
+
+타임존 마운트 설정(`volumes`)이 변경되었으므로, 반드시 컨테이너를 재생성해야 합니다.
+```bash
+docker compose down
+docker compose up -d
+```
+
+**5. 실행 상태 확인 (Verify)**
+
+모든 컨테이너가 `healthy` 또는 `Up` 상태인지 확인합니다.
+```bash
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+```
 ---
 
 ## ⚖️ License
