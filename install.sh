@@ -4,11 +4,11 @@
 # Aegis-Proxy-Stack Installer (Phase 1)
 # ==========================================
 
-echo "*****************************************************"
-echo "* *"
-echo "* Aegis-Proxy-Stack 설치 환경을 구성합니다.     *"
-echo "* *"
-echo "*****************************************************"
+echo "****************************************************"
+echo "*                                                  *"
+echo "*      Aegis-Proxy-Stack 설치 환경을 구성합니다.      *"
+echo "*                                                  *"
+echo "****************************************************"
 echo ""
 
 # 현재 위치가 프로젝트 루트인지 확인
@@ -19,25 +19,44 @@ if [ ! -f "docker-compose.yml" ]; then
     exit 1
 fi
 
-# 1. 런타임 데이터 디렉토리 생성
+# ------------------------------------------------------------------------------
+# 1. 런타임 데이터 디렉토리 생성 및 초기화
+# ------------------------------------------------------------------------------
 echo ""
 echo "[Step 1] 통합 데이터 디렉토리 구조를 생성합니다."
 echo "----------------------------------------------------"
 
-# 1. Aegis Config (설정 저장소)
+# 1-1. Aegis Config (설정 저장소)
 if [ ! -d "aegis-config/agent" ]; then
     mkdir -p aegis-config/agent
     echo "  + Created: aegis-config/agent"
 fi
 
-# 2. Aegis Data (데이터 저장소)
+# [정책 파일 초기화]
+# GitHub에서 받은 template을 기반으로 실제 운영에 사용할 local_policy.yaml을 생성합니다.
+# 이미 파일이 존재한다면(업데이트 상황), 기존 설정을 보호하기 위해 덮어쓰지 않습니다.
+if [ ! -f "aegis-config/policy/local_policy.yaml" ]; then
+    if [ -f "aegis-config/policy/local_policy.yaml.template" ]; then
+        cp aegis-config/policy/local_policy.yaml.template aegis-config/policy/local_policy.yaml
+        echo "  + Created: initial local_policy.yaml from template"
+    fi
+fi
+
+# [고급 ML 모델 파일 권한 설정]
+# GitHub에서 함께 내려받은 모델 바이너리(.tgz) 파일의 권한을 보안 표준에 맞춰 조정합니다.
+if [ -f "aegis-config/advanced-model/open-appsec-advanced-model.tgz" ]; then
+    chmod 640 aegis-config/advanced-model/open-appsec-advanced-model.tgz
+    echo "  + Secured: Advanced ML Model binary"
+fi
+
+# 1-2. Aegis Data (데이터 저장소)
 mkdir -p aegis-data/npm
 mkdir -p aegis-data/db
 mkdir -p aegis-data/certs
 mkdir -p aegis-data/learning
 echo "  + Created: aegis-data structure (npm, db, certs, learning)"
 
-# 3. Aegis Logs (로그 저장소)
+# 1-3. Aegis Logs (로그 저장소)
 mkdir -p aegis-logs/waf
 mkdir -p aegis-logs/npm
 echo "  + Created: aegis-logs structure (waf, npm)"
@@ -46,9 +65,10 @@ echo "  + Created: aegis-logs structure (waf, npm)"
 chmod -R 750 aegis-config aegis-data aegis-logs
 echo "✅ 디렉토리 보안 권한 설정 완료 (750)"
 echo ""
-echo ""
 
+# ------------------------------------------------------------------------------
 # 2. 사용자 입력 받기 (Interactive)
+# ------------------------------------------------------------------------------
 echo ""
 echo "[Step 2] 보안 설정을 위해 정보를 입력해주세요."
 echo "----------------------------------------------------"
@@ -65,6 +85,7 @@ done
 
 # 2-2. DB Password 입력
 echo ""
+# -s 옵션: 입력값 숨김 (비밀번호 보안)
 read -s -p "👉 데이터베이스 Root 비밀번호를 설정하세요 (엔터 시 기본값 사용): " INPUT_DB_ROOT
 echo ""
 if [ -z "$INPUT_DB_ROOT" ]; then
@@ -80,9 +101,10 @@ if [ -z "$INPUT_NPM_PASS" ]; then
     echo "    ℹ️  기본값으로 설정되었습니다."
 fi
 echo ""
-echo ""
 
+# ------------------------------------------------------------------------------
 # 3. .env 파일 생성 및 보안 설정
+# ------------------------------------------------------------------------------
 echo ""
 echo "[Step 3] 환경 설정 파일(.env)을 생성합니다."
 echo "----------------------------------------------------"
@@ -107,11 +129,38 @@ EOF
 chmod 600 .env
 echo "✅ .env 파일이 안전하게 생성되었습니다 (권한: 600)"
 echo ""
+
+# ------------------------------------------------------------------------------
+# 4. 버전 파일 생성 (Git 태그 기반 자동 감지) - [새로 추가됨]
+# ------------------------------------------------------------------------------
+echo ""
+echo "[Step 4] Versioning..."
+
+# Git 저장소(.git 폴더)가 존재하는지 확인
+if [ -d ".git" ]; then
+    # 태그 목록을 버전 순(Semantic Versioning)으로 정렬하고 가장 최신 태그 추출
+    LATEST_TAG=$(git tag -l | sort -V | tail -n 1)
+    
+    if [ -n "$LATEST_TAG" ]; then
+        echo "$LATEST_TAG" > VERSION
+        echo "  + Auto-detected Version: $LATEST_TAG"
+    else
+        # 태그가 하나도 없는 경우 (초기 개발 상태 등) 안전 장치
+        echo "v0.3.0" > VERSION
+        echo "  + Warning: No Git tags found. Defaulting to v0.3.0"
+    fi
+else
+    # .git 폴더가 없는 경우 (Zip 다운로드 등) 안전 장치
+    echo "v0.3.0" > VERSION
+    echo "  + Created: VERSION file (Fallback: v0.3.0)"
+fi
 echo ""
 
-# 4. 도커 생성 및 서비스 시작 (자동 실행 로직 추가)
+# ------------------------------------------------------------------------------
+# 5. 도커 생성 및 서비스 시작 (자동 실행)
+# ------------------------------------------------------------------------------
 echo ""
-echo "[Step 4] 서비스 실행"
+echo "[Step 5] 서비스 실행"
 echo "----------------------------------------------------"
 echo "🎉 모든 설정 파일과 디렉토리 준비가 완료되었습니다!"
 echo ""

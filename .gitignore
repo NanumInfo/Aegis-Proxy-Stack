@@ -1,13 +1,15 @@
 # Aegis-Proxy-Stack .gitignore
 
-# 1. Runtime Data & Logs (데이터 및 로그 절대 금지)
+# 1. Runtime Data & Logs
 aegis-data/
 aegis-logs/
 
-# 2. Runtime Config (에이전트가 자동 생성하는 설정)
+# 2. Runtime Config
 aegis-config/agent/
+aegis-config/policy/local_policy.yaml
 
 # 3. System Files
+.env
 .DS_Store
 Thumbs.db
-.env
+VERSION

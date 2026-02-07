@@ -69,6 +69,7 @@ services:
       - nginxproxymanager=true
       - user_email=${AGENT_EMAIL}
     volumes:
+      - ./aegis-config/advanced-model/open-appsec-advanced-model.tgz:/advanced-model/open-appsec-advanced-model.tgz:rw
       - ./aegis-config/agent:/etc/cp/conf
       - ./aegis-config/policy:/ext/appsec
       - ./aegis-data/learning:/etc/cp/data
