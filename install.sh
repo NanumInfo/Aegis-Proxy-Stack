@@ -1,208 +1,395 @@
 #!/bin/bash
 
-# ==========================================
-# Aegis-Proxy-Stack Installer (Phase 1)
-# ==========================================
+# ==============================================================================
+# Aegis-Proxy-Stack Installer
+# ==============================================================================
 
-echo "****************************************************"
-echo "*                                                  *"
-echo "*      Aegis-Proxy-Stack 설치 환경을 구성합니다.      *"
-echo "*                                                  *"
-echo "****************************************************"
-echo ""
+# [Locale Setup]
+export LC_ALL=C
+export LANG=C
 
-# 현재 위치가 프로젝트 루트인지 확인
-if [ ! -f "docker-compose.yml" ]; then
-    echo "❌ 오류: docker-compose.yml 파일을 찾을 수 없습니다."
-    echo "    git clone 받은 디렉토리 내부에서 스크립트를 실행해주세요."
+# [Constraint] Version is fixed until explicit user update
+RELEASE_VERSION="v0.4.0"
+
+# --- [Universal Color Palette] ---
+TXT_RED='\033[1;31m'
+TXT_GREEN='\033[1;32m'
+TXT_YELLOW='\033[1;33m'
+TXT_BLUE='\033[1;34m'
+TXT_MAGENTA='\033[1;35m'
+TXT_CYAN='\033[1;36m'
+TXT_WHITE='\033[1;37m'
+TXT_GRAY='\033[0;90m'
+
+# Background Colors
+BG_RED='\033[41m'
+BG_GREEN='\033[42m'
+BG_YELLOW='\033[43m'
+BG_BLUE='\033[44m'
+BG_MAGENTA='\033[45m'
+BG_CYAN='\033[46m'
+BG_WHITE='\033[47m'
+
+# Formatting
+BOLD='\033[1m'
+RESET='\033[0m'
+
+# --- [Visual Helper Functions] ---
+
+print_banner() {
+    clear
+    local width=64
+    local title="Aegis-Proxy-Stack Installer $RELEASE_VERSION"
+    local title_len=${#title}
+    
+    local inner_width=$((width - 2))
+    local pad_left=$(( (inner_width - title_len) / 2 ))
+    local pad_right=$(( inner_width - title_len - pad_left ))
+    
+    local padding_l=$(printf '%*s' "$pad_left" "")
+    local padding_r=$(printf '%*s' "$pad_right" "")
+    local horizontal_line=$(printf '%*s' "$width" "" | tr ' ' '#')
+    local empty_line=$(printf '%*s' "$inner_width" "")
+
     echo ""
+    echo -e "${TXT_BLUE}   ${horizontal_line}${RESET}"
+    echo -e "${TXT_BLUE}   #${RESET}${empty_line}${TXT_BLUE}#${RESET}"
+    echo -e "${TXT_BLUE}   #${RESET}${padding_l}${TXT_WHITE}${BOLD}${title}${RESET}${padding_r}${TXT_BLUE}#${RESET}"
+    echo -e "${TXT_BLUE}   #${RESET}${empty_line}${TXT_BLUE}#${RESET}"
+    echo -e "${TXT_BLUE}   ${horizontal_line}${RESET}"
+    echo -e "    ${TXT_CYAN}Automated Security Stack Deployment (Core)${RESET}"
+    echo ""
+}
+
+log_step() {
+    echo -e "\n${TXT_WHITE}[ Step $1 ] $2${RESET}"
+    echo -e "${TXT_GRAY}----------------------------------------------------------------${RESET}"
+}
+
+log_info() {
+    echo -e "   ${BG_CYAN}${TXT_WHITE}${BOLD} INFO ${RESET} $1"
+}
+
+log_task() {
+    echo -e "   ${BG_BLUE}${TXT_WHITE}${BOLD} TASK ${RESET} $1"
+}
+
+log_success() {
+    echo -e "   ${BG_GREEN}${TXT_WHITE}${BOLD} DONE ${RESET} $1"
+}
+
+log_warn() {
+    echo -e "   ${BG_YELLOW}${TXT_WHITE}${BOLD} WARN ${RESET} $1"
+}
+
+log_error() {
+    echo -e "   ${BG_RED}${TXT_WHITE}${BOLD} FAIL ${RESET} $1"
+}
+
+log_wait() {
+    echo -ne "   ${BG_MAGENTA}${TXT_WHITE}${BOLD} WAIT ${RESET} $1"
+}
+
+# [FIX] Inline Input Style (Removed newline)
+log_input() {
+    echo -ne "   ${BG_MAGENTA}${TXT_WHITE}${BOLD} INPUT ${RESET} $1 "
+}
+
+# --- [Advanced Spinner Logic] ---
+execute_with_spinner() {
+    local msg="$1"
+    shift
+    local cmd="$@"
+    
+    tput civis
+    eval "$cmd" > /dev/null 2>&1 &
+    local pid=$!
+    local delay=0.1
+    local spinstr='|/-\'
+    local temp
+    
+    while ps -p $pid > /dev/null; do
+        local temp=${spinstr#?}
+        printf "\r   ${BG_MAGENTA}${TXT_WHITE}${BOLD}  %c  ${RESET} %s" "$spinstr" "$msg"
+        local spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+    done
+    wait $pid
+    local exit_code=$?
+    
+    tput cnorm
+    printf "\r\033[K" # Clear line
+
+    if [ $exit_code -eq 0 ]; then
+        echo -e "   ${BG_GREEN}${TXT_WHITE}${BOLD} DONE ${RESET} $msg"
+    else
+        echo -e "   ${BG_RED}${TXT_WHITE}${BOLD} FAIL ${RESET} $msg"
+        return 1
+    fi
+    echo ""
+}
+
+# --- [Main Script Start] ---
+
+print_banner
+
+# ------------------------------------------------------------------------------
+# 0. Check Prerequisites
+# ------------------------------------------------------------------------------
+for pkg in jq curl node; do
+    if ! command -v $pkg &> /dev/null; then
+        log_error "Missing required package: '$pkg'"
+        echo -e "            Please install it first (e.g., sudo apt install $pkg)"
+        exit 1
+    fi
+done
+
+if [ ! -f "docker-compose.yml" ]; then
+    log_error "File not found: docker-compose.yml"
     exit 1
 fi
 
 # ------------------------------------------------------------------------------
-# 1. 런타임 데이터 디렉토리 생성 및 초기화
+# 1. Initialize Runtime Directories
 # ------------------------------------------------------------------------------
-echo ""
-echo "[Step 1] 통합 데이터 디렉토리 구조를 생성합니다."
-echo "----------------------------------------------------"
+log_step 1 "Initializing Data Directories"
 
-# 1-1. Aegis Config (설정 저장소)
-if [ ! -d "aegis-config/agent" ]; then
-    mkdir -p aegis-config/agent
-    echo "  + Created: aegis-config/agent"
+if [ -d "aegis-data/db" ] && [ "$(ls -A aegis-data/db)" ]; then
+    log_warn "Existing database detected."
+    echo "            (To reinstall cleanly, run 'docker compose down' and 'sudo rm -rf aegis-data')"
 fi
 
-# [정책 파일 초기화]
-# GitHub에서 받은 template을 기반으로 실제 운영에 사용할 local_policy.yaml을 생성합니다.
-# 이미 파일이 존재한다면(업데이트 상황), 기존 설정을 보호하기 위해 덮어쓰지 않습니다.
+mkdir -p aegis-config/agent
+mkdir -p aegis-config/scripts
+mkdir -p aegis-config/policy
+
 if [ ! -f "aegis-config/policy/local_policy.yaml" ]; then
-    if [ -f "aegis-config/policy/local_policy.yaml.template" ]; then
-        cp aegis-config/policy/local_policy.yaml.template aegis-config/policy/local_policy.yaml
-        echo "  + Created: initial local_policy.yaml from template"
-    fi
+    touch aegis-config/policy/local_policy.yaml
+    log_task "Created placeholder policy file."
 fi
 
-# [고급 ML 모델 파일 권한 설정]
-# GitHub에서 함께 내려받은 모델 바이너리(.tgz) 파일의 권한을 보안 표준에 맞춰 조정합니다.
 if [ -f "aegis-config/advanced-model/open-appsec-advanced-model.tgz" ]; then
     chmod 640 aegis-config/advanced-model/open-appsec-advanced-model.tgz
-    echo "  + Secured: Advanced ML Model binary"
+    log_task "Secured Advanced ML Model binary."
 fi
 
-# 1-2. Aegis Data (데이터 저장소)
-mkdir -p aegis-data/npm
-mkdir -p aegis-data/db
-mkdir -p aegis-data/certs
-mkdir -p aegis-data/learning
-echo "  + Created: aegis-data structure (npm, db, certs, learning)"
+mkdir -p aegis-data/{certs,db,learning,npm}
+mkdir -p aegis-logs/{npm,waf}
+log_task "Created data and log directories."
 
-# 1-3. Aegis Logs (로그 저장소)
-mkdir -p aegis-logs/waf
-mkdir -p aegis-logs/npm
-echo "  + Created: aegis-logs structure (waf, npm)"
-
-# [보안 강화] 디렉토리 권한 설정 (750: 소유자/그룹 외 접근 원천 차단)
 chmod -R 750 aegis-config aegis-data aegis-logs
-echo "✅ 디렉토리 보안 권한 설정 완료 (750)"
-echo ""
+log_success "Directory permissions set (750)."
+
 
 # ------------------------------------------------------------------------------
-# 2. 사용자 입력 받기 (Interactive)
+# 2. User Configuration Input (Unified)
 # ------------------------------------------------------------------------------
-echo ""
-echo "[Step 2] 보안 설정을 위해 정보를 입력해주세요."
-echo "----------------------------------------------------"
+log_step 2 "Unified Configuration Setup"
 
-# 2-1. E-Mail 입력
+echo -e "   ${TXT_GRAY}Note: This email and password will be used for ALL services.${RESET}\n"
+
+# 1. Master Email Input
 while true; do
-    read -p "👉 사용자의 E-Mail 주소를 입력하세요 (필수): " INPUT_EMAIL
-    if [ -z "$INPUT_EMAIL" ]; then
-        echo "    ⚠️  E-Mail은 필수 입력 항목입니다."
-    else
+    log_input "Enter Master Email (ID):"
+    read -r MASTER_EMAIL
+    echo "" # Spacing after input
+    
+    if [[ "$MASTER_EMAIL" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
         break
+    else
+        log_warn "Invalid email format. Please try again."
+        echo ""
     fi
 done
 
-# 2-2. DB Password 입력
-echo ""
-# -s 옵션: 입력값 숨김 (비밀번호 보안)
-read -s -p "👉 데이터베이스 Root 비밀번호를 설정하세요 (엔터 시 기본값 사용): " INPUT_DB_ROOT
-echo ""
-if [ -z "$INPUT_DB_ROOT" ]; then
-    INPUT_DB_ROOT="root_password_change_me"
-    echo "    ℹ️  기본값으로 설정되었습니다."
-fi
+# 2. Master Password Input (With Verification)
+while true; do
+    log_input "Enter Master Password:"
+    read -rs MASTER_PASS_1
+    echo "" # Newline for hidden input
+    echo "" # Spacing gap
 
-echo ""
-read -s -p "👉 NPM Database 비밀번호를 설정하세요 (엔터 시 기본값 사용): " INPUT_NPM_PASS
-echo ""
-if [ -z "$INPUT_NPM_PASS" ]; then
-    INPUT_NPM_PASS="npm_password"
-    echo "    ℹ️  기본값으로 설정되었습니다."
-fi
-echo ""
+    if [ -z "$MASTER_PASS_1" ]; then
+        log_warn "Password cannot be empty."
+        echo ""
+        continue
+    fi
+
+    log_input "Confirm Master Password:"
+    read -rs MASTER_PASS_2
+    echo "" # Newline for hidden input
+    echo "" # Spacing gap
+
+    if [ "$MASTER_PASS_1" == "$MASTER_PASS_2" ]; then
+        MASTER_PASSWORD="$MASTER_PASS_1"
+        log_success "Password verified."
+        break
+    else
+        log_error "Passwords do not match. Please try again."
+        echo ""
+    fi
+done
+
+INPUT_EMAIL="$MASTER_EMAIL"
+INPUT_DB_ROOT="$MASTER_PASSWORD"
+INPUT_NPM_PASS="$MASTER_PASSWORD"
+
 
 # ------------------------------------------------------------------------------
-# 3. .env 파일 생성 및 보안 설정
+# 3. Environment & Version Files
 # ------------------------------------------------------------------------------
-echo ""
-echo "[Step 3] 환경 설정 파일(.env)을 생성합니다."
-echo "----------------------------------------------------"
+log_step 3 "Generating Environment Files"
 
-# 기존 .env 파일이 있으면 백업
 if [ -f ".env" ]; then
-    echo "    ℹ️  기존 .env 파일이 발견되어 .env.bak 으로 백업합니다."
     cp .env .env.bak
 fi
 
 cat <<EOF > .env
 # [Aegis-Proxy-Stack Environment Variables]
-# Created automatically by install.sh
-# WARNING: Do not share this file.
-
 AGENT_EMAIL=${INPUT_EMAIL}
 DB_ROOT_PASSWORD=${INPUT_DB_ROOT}
 NPM_DB_PASSWORD=${INPUT_NPM_PASS}
 EOF
-
-# [중요] .env 파일 권한 제한 (소유자만 읽기/쓰기 가능)
 chmod 600 .env
-echo "✅ .env 파일이 안전하게 생성되었습니다 (권한: 600)"
-echo ""
+log_success ".env file generated."
+
+echo "$RELEASE_VERSION" > VERSION
+log_success "VERSION file generated ($RELEASE_VERSION)."
+
 
 # ------------------------------------------------------------------------------
-# 4. 버전 파일 생성 (Git 태그 기반 자동 감지) - [새로 추가됨]
+# 4. Policy Controller Setup
 # ------------------------------------------------------------------------------
-echo ""
-echo "[Step 4] Versioning..."
+log_step 4 "Setting up Policy Controller"
 
-# Git 저장소(.git 폴더)가 존재하는지 확인
-if [ -d ".git" ]; then
-    # 태그 목록을 버전 순(Semantic Versioning)으로 정렬하고 가장 최신 태그 추출
-    LATEST_TAG=$(git tag -l | sort -V | tail -n 1)
-    
-    if [ -n "$LATEST_TAG" ]; then
-        echo "$LATEST_TAG" > VERSION
-        echo "  + Auto-detected Version: $LATEST_TAG"
-    else
-        # 태그가 하나도 없는 경우 (초기 개발 상태 등) 안전 장치
-        echo "v0.3.0" > VERSION
-        echo "  + Warning: No Git tags found. Defaulting to v0.3.0"
-    fi
+# [Check] Ensure static script exists
+if [ ! -f "aegis-config/scripts/policy_generator.js" ]; then
+    log_error "File not found: aegis-config/scripts/policy_generator.js"
+    echo -e "            Please ensure the policy generator script is present."
+    exit 1
 else
-    # .git 폴더가 없는 경우 (Zip 다운로드 등) 안전 장치
-    echo "v0.3.0" > VERSION
-    echo "  + Created: VERSION file (Fallback: v0.3.0)"
+    log_success "Found policy_generator.js."
 fi
-echo ""
+
+log_task "Installing NPM dependencies (axios, js-yaml, lodash)..."
+npm install axios js-yaml lodash --prefix aegis-config/scripts --silent >/dev/null 2>&1
+log_success "Policy Controller dependencies installed."
+
 
 # ------------------------------------------------------------------------------
-# 5. 도커 생성 및 서비스 시작 (자동 실행)
+# 5. Docker Service Startup & Account Config
 # ------------------------------------------------------------------------------
-echo ""
-echo "[Step 5] 서비스 실행"
-echo "----------------------------------------------------"
-echo "🎉 모든 설정 파일과 디렉토리 준비가 완료되었습니다!"
-echo ""
+log_step 5 "Docker Service Startup & Configuration"
 
 while true; do
-    read -p "🚀 지금 바로 Aegis-Proxy-Stack 서비스를 시작하시겠습니까? (Y/n): " CONFIRM
-    # 엔터 입력 시 기본값 Y
+    log_input "Start services now? (Y/n):"
+    read -r CONFIRM
+    echo "" 
     CONFIRM=${CONFIRM:-Y}
-
     case $CONFIRM in
-        [yY][eE][sS]|[yY])
-            echo ""
-            echo "🔄 Docker Compose를 실행하여 컨테이너를 생성합니다..."
-            echo "----------------------------------------------------"
+        [yY]*)
+            echo -e "   ${TXT_YELLOW}🔄 Starting Docker Compose...${RESET}"
             docker compose up -d
+            if [ $? -ne 0 ]; then log_error "Docker launch failed."; exit 1; fi
             
-            if [ $? -eq 0 ]; then
-                echo ""
-                echo "✅ 서비스가 성공적으로 시작되었습니다!"
-                echo "📊 현재 실행 상태:"
-                echo ""
-                docker compose ps
-                echo ""
-                echo "🌐 접속 주소: http://localhost:81 (관리자 페이지)"
+            echo ""
+            log_success "Core services started."
+            
+            # --- [CRITICAL FIX: Initial Account Configuration] ---
+            # Wait for NPM API
+            NPM_API="http://localhost:81/api"
+            check_api() {
+                local count=0
+                while [ $count -lt 90 ]; do
+                    code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 2 "$NPM_API/schema")
+                    if [ "$code" == "200" ]; then return 0; fi
+                    sleep 2
+                    count=$((count+1))
+                done
+                return 1
+            }
+            
+            execute_with_spinner "Waiting for NPM API to initialize..." check_api || { log_error "NPM API timed out."; exit 1; }
+            
+            # Helper to get token
+            get_token() {
+                local u=$1; local p=$2
+                curl -s -X POST "$NPM_API/tokens" \
+                    -H "Content-Type: application/json" \
+                    -d "{\"identity\":\"$u\",\"secret\":\"$p\"}"
+            }
+            
+            # 1. Login with DEFAULT credentials
+            log_task "Configuring Admin Account..."
+            DEFAULT_USER="admin@example.com"
+            DEFAULT_PASS="changeme"
+            
+            # Try Default Login
+            RAW_RES=$(get_token "$DEFAULT_USER" "$DEFAULT_PASS")
+            TOKEN=$(echo "$RAW_RES" | jq -r '.token // empty')
+            
+            if [ -n "$TOKEN" ] && [ "$TOKEN" != "null" ]; then
+                # 2. Change Password
+                PW_PAYLOAD=$(jq -n --arg s "$INPUT_NPM_PASS" --arg c "$DEFAULT_PASS" '{type: "password", secret: $s, current: $c}')
+                curl -s -o /dev/null -X PUT "$NPM_API/users/1/auth" \
+                    -H "Authorization: Bearer $TOKEN" \
+                    -H "Content-Type: application/json" \
+                    -d "$PW_PAYLOAD"
+                
+                # 3. Change Email/Name (Re-login required? usually token is still valid for user update)
+                # Re-login with NEW password to be safe and verify change
+                RAW_RES_2=$(get_token "$DEFAULT_USER" "$INPUT_NPM_PASS")
+                TOKEN_2=$(echo "$RAW_RES_2" | jq -r '.token // empty')
+                
+                if [ -n "$TOKEN_2" ]; then
+                    UPDATE_PAYLOAD=$(jq -n --arg e "$INPUT_EMAIL" '{name: "Administrator", nickname: "Admin", email: $e}')
+                    curl -s -o /dev/null -X PUT "$NPM_API/users/1" \
+                        -H "Authorization: Bearer $TOKEN_2" \
+                        -H "Content-Type: application/json" \
+                        -d "$UPDATE_PAYLOAD"
+                    log_success "Admin account updated to: $INPUT_EMAIL"
+                else
+                    log_error "Failed to verify new password."
+                    exit 1
+                fi
             else
-                echo ""
-                echo "❌ 오류: Docker 실행 중 문제가 발생했습니다."
-                echo "    로그를 확인하거나 'docker compose up -d'를 수동으로 실행해보세요."
+                # Login failed. Assuming already configured?
+                # Try logging in with the Master Password provided
+                RAW_RES_CHECK=$(get_token "$INPUT_EMAIL" "$INPUT_NPM_PASS")
+                TOKEN_CHECK=$(echo "$RAW_RES_CHECK" | jq -r '.token // empty')
+                
+                if [ -n "$TOKEN_CHECK" ]; then
+                    log_success "Account already configured. Skipping setup."
+                else
+                    log_warn "Could not login with default OR new credentials. Check logs."
+                fi
             fi
-            break
-            ;;
-        [nN][oO]|[nN])
+            
             echo ""
-            echo "ℹ️  자동 실행을 취소했습니다."
-            echo "    나중에 아래 명령어로 서비스를 시작해주세요:"
+            log_success "Installation Complete."
+            
+            # --- [Launch Verification] ---
+            log_input "Run verification script (verify_all.sh) now? (Y/n):"
+            read -r RUN_VERIFY
             echo ""
-            echo "    docker compose up -d"
-            echo ""
-            break
-            ;;
-        *)
-            echo "⚠️  Y 또는 N을 입력해주세요."
-            ;;
+            RUN_VERIFY=${RUN_VERIFY:-Y}
+            
+            if [[ "$RUN_VERIFY" =~ ^[yY] ]]; then
+                if [ -f "./verify_all.sh" ]; then
+                    chmod +x ./verify_all.sh
+                    # Pass credentials to verify script
+                    export MASTER_EMAIL="$INPUT_EMAIL"
+                    export MASTER_PASSWORD="$INPUT_DB_ROOT"
+                    ./verify_all.sh
+                else
+                    log_error "verify_all.sh not found."
+                fi
+            else
+                echo -e "   ${TXT_CYAN}➜ Run './verify_all.sh' manually when ready.${RESET}"
+                echo ""
+            fi
+            break ;;
+        [nN]*) log_info "Installation aborted by user."; exit 0 ;;
+        *) echo "   ${TXT_YELLOW}[WARN] Please enter Y or N.${RESET}" ;;
     esac
 done
