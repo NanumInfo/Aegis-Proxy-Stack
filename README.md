@@ -144,8 +144,8 @@ Aegis-Proxy-Stack은 단순한 통합을 넘어, 운영 안정성과 보안 규�
 
 2. **저장소 복제 (Clone Repository)**
    ```bash
-   git clone https://github.com/AegisAX/aegis-proxy-stack.git
-   cd aegis-proxy-stack
+   git clone https://github.com/AegisAX/Aegis-Proxy-Stack.git
+   cd Aegis-Proxy-Stack
    ```
 
 3. **설치 스크립트 실행 (Run Interactive Installer)**
@@ -225,7 +225,7 @@ NPM UI에서 SSL 인증서 발급 시 `JSONObject["responsetime"] not found` 또
 
 ```bash
 # 1. 프로젝트 폴더로 이동
-cd ~/aegis-proxy-stack
+cd ~/Aegis-Proxy-Stack
 
 # 2. 최신 업데이트 스크립트 가져오기 (코드 충돌 방지)
 git fetch origin
